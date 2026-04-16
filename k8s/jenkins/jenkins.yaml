@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-casc
+  namespace: jenkins
+data:
+  casc.yaml: |
+    jenkins:
+      systemMessage: "OTel PoC for 2 tier achitecture"
+      securityRealm:
+        local:
+          allowsSignup: false
+          users:
+            - id: admin
+              password: admin
+      authorizationStrategy:
+        loggedInUsersCanDoAnything:
+          allowAnonymousRead: true
+      numExecutors: 4
+
+    unclassified:
+      openTelemetry:
+        endpoint: "http://otel-agent.observability.svc.cluster.local:4317"
+        authentication: "noAuthentication"
+        exportOtelConfigurationAsEnvironmentVariables: true
+        configurationProperties: |
+          otel.instrumentation.jenkins.web.enabled=true
+          otel.instrumentation.jenkins.remote.span.enabled=true
+          otel.logs.exporter=otlp
+          otel.exporter.otlp.protocol=grpc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+  namespace: jenkins
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jenkins
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      containers:
+        - name: jenkins
+          image: jenkins/jenkins:lts-jdk21
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 50000
+              name: agent
+          env:
+            - name: JAVA_OPTS
+              value: "-Djenkins.install.runSetupWizard=false"
+            - name: CASC_JENKINS_CONFIG
+              value: "/var/jenkins_home/casc.yaml"
+          volumeMounts:
+            - name: casc
+              mountPath: /var/jenkins_home/casc.yaml
+              subPath: casc.yaml
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+      volumes:
+        - name: casc
+          configMap:
+            name: jenkins-casc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+  namespace: jenkins
+spec:
+  selector:
+    app: jenkins
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+      name: http
+    - port: 50000
+      targetPort: 50000
+      name: agent
+  type: NodePort

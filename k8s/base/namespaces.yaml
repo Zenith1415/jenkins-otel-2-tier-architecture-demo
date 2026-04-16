@@ -1,0 +1,24 @@
+#   jenkins       — Jenkins controller + agents
+#   observability — OTel Collectors (Tier-1 + Tier-2)
+#   monitoring    — Backends (Jaeger, Prometheus)
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jenkins
+  labels:
+    app.kubernetes.io/part-of: otel-jenkins-poc
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels:
+    app.kubernetes.io/part-of: otel-jenkins-poc
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    app.kubernetes.io/part-of: otel-jenkins-poc
